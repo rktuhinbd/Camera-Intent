@@ -1,8 +1,8 @@
-package com.rktuhinbd.android_11cameraintent;
+package com.rktuhinbd.cameraintent;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -13,6 +13,8 @@ import android.widget.ImageView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+
+import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +32,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private ImageView imageView;
     private Button button;
 
+    private String imageFileName;
     private String currentPhotoPath;
+    private Uri sourceUri = null;
 
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 101;
 
@@ -106,8 +110,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private File createImageFile() throws IOException {
         // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
+        @SuppressLint("SimpleDateFormat") String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
@@ -118,6 +122,17 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         // Save a file: path for use with ACTION_VIEW intents
         currentPhotoPath = image.getAbsolutePath();
         return image;
+    }
+
+    private void cropImage(Uri sourceUri) {
+        UCrop.Options options = new UCrop.Options();
+        options.setCompressionQuality(100);
+        options.withAspectRatio(1, 1);
+        options.withMaxResultSize(300, 300);
+
+        UCrop.of(sourceUri, this.sourceUri)
+                .withOptions(options)
+                .start(this);
     }
 
     @Override
@@ -132,12 +147,26 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         }
 
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            try {
-                Bitmap mImageBitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), Uri.fromFile(new File(currentPhotoPath)));
-                imageView.setImageBitmap(mImageBitmap);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+
+            sourceUri = Uri.fromFile(new File(currentPhotoPath));
+            Uri destinationUri = Uri.fromFile(new File(getCacheDir(), imageFileName));
+
+            UCrop.Options options = new UCrop.Options();
+            options.setCompressionQuality(100);
+            options.withAspectRatio(2, 1);
+//            options.withMaxResultSize(600, 300);
+
+            UCrop.of(sourceUri, destinationUri)
+                    .withOptions(options)
+                    .start(this);
+
+        }
+
+        if (resultCode == RESULT_OK && requestCode == UCrop.REQUEST_CROP) {
+            final Uri resultUri = UCrop.getOutput(data);
+            imageView.setImageURI(resultUri);
+        } else if (resultCode == UCrop.RESULT_ERROR) {
+            final Throwable cropError = UCrop.getError(data);
         }
     }
 

@@ -1,4 +1,4 @@
-package com.rktuhinbd.android_11cameraintent;
+package com.rktuhinbd.cameraintent;
 
 import org.junit.Test;
 
